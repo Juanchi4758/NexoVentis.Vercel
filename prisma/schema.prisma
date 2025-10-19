@@ -8,7 +8,196 @@ generator client {
 }
 
 model Usuario {
-  id       Int    @id @default(autoincrement())
-  nombre   String
-  email    String @unique
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  email     String   @unique
+  password  String
+  rol       String   @default("admin") // admin, empleado, etc.
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  ventas    Venta[]
+  gastos    Gasto[]
+}
+
+model Categoria {
+  id        Int       @id @default(autoincrement())
+  nombre    String    @unique
+  color     String    @default("#3b82f6")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relaciones
+  productos Producto[]
+}
+
+model Producto {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  categoriaId Int
+  precio      Float
+  cantidad    Int      @default(0)
+  stockMinimo Int      @default(5)
+  estado      String   @default("disponible") // disponible, bajo-stock, agotado
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  categoria   Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  ventas      VentaItem[]
+  movimientos MovimientoInventario[]
+
+  @@index([categoriaId])
+  @@index([estado])
+}
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  telefono  String?
+  email     String?
+  direccion String?
+  notas     String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  fiados    Fiado[]
+  ventas    Venta[]
+
+  @@index([nombre])
+}
+
+model Venta {
+  id            Int      @id @default(autoincrement())
+  total         Float
+  metodoPago    String   // efectivo, tarjeta, transferencia, fiado
+  fecha         DateTime @default(now())
+  usuarioId     Int?
+  clienteId     Int?
+  notas         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  usuario       Usuario?  @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  cliente       Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  items         VentaItem[]
+
+  @@index([fecha])
+  @@index([metodoPago])
+  @@index([usuarioId])
+  @@index([clienteId])
+}
+
+model VentaItem {
+  id          Int      @id @default(autoincrement())
+  ventaId     Int
+  productoId  Int
+  cantidad    Int
+  precioUnit  Float
+  subtotal    Float
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  venta       Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  @@index([ventaId])
+  @@index([productoId])
+}
+
+model Gasto {
+  id          Int      @id @default(autoincrement())
+  descripcion String
+  categoria   String   // Arriendo, Servicios, Inventario, Salarios, etc.
+  monto       Float
+  metodoPago  String   // efectivo, tarjeta, transferencia
+  fecha       DateTime @default(now())
+  usuarioId   Int?
+  notas       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([fecha])
+  @@index([categoria])
+  @@index([usuarioId])
+}
+
+model Fiado {
+  id              Int      @id @default(autoincrement())
+  clienteId       Int
+  montoTotal      Float
+  montoPagado     Float    @default(0)
+  montoPendiente  Float
+  estado          String   @default("pendiente") // pendiente, pagado-parcial, pagado
+  fechaVencimiento DateTime
+  notas           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  cliente         Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagos           Pago[]
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaVencimiento])
+}
+
+model Pago {
+  id          Int      @id @default(autoincrement())
+  fiadoId     Int
+  monto       Float
+  metodoPago  String   // efectivo, tarjeta, transferencia
+  fecha       DateTime @default(now())
+  notas       String?
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  fiado       Fiado    @relation(fields: [fiadoId], references: [id], onDelete: Cascade)
+
+  @@index([fiadoId])
+  @@index([fecha])
+}
+
+model MovimientoInventario {
+  id          Int      @id @default(autoincrement())
+  productoId  Int
+  tipo        String   // entrada, salida, ajuste, venta, devolucion
+  cantidad    Int
+  cantidadAnterior Int
+  cantidadNueva    Int
+  motivo      String?
+  fecha       DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  producto    Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId])
+  @@index([fecha])
+  @@index([tipo])
+}
+
+model Notificacion {
+  id            Int      @id @default(autoincrement())
+  tipo          String   // bajo-stock, agotado, fiado-vencido, fiado-proximo, info
+  titulo        String
+  mensaje       String
+  prioridad     String   @default("media") // alta, media, baja
+  leida         Boolean  @default(false)
+  relacionadoId Int?
+  relacionadoTipo String? // product, fiado
+  createdAt     DateTime @default(now())
+
+  @@index([leida])
+  @@index([tipo])
+  @@index([createdAt])
 }
